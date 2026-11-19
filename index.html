@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0d12">
+  <meta name="color-scheme" content="dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Card Vault">
+  <meta name="description" content="Track your trading card collection and live market value.">
+  <title>Card Vault</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <style>
+    :root {
+      --bg: #0b0d12;
+      --bg-elev: #12151c;
+      --card: #181c26;
+      --card-2: #1e2330;
+      --line: #2a3140;
+      --text: #eceef3;
+      --muted: #8b93a7;
+      --gold: #e8b84a;
+      --gold-dim: #e8b84a22;
+      --good: #34d399;
+      --bad: #f87171;
+      --blue: #7aa2ff;
+      --shadow: 0 8px 28px rgba(0,0,0,.35);
+      --tab-h: calc(58px + env(safe-area-inset-bottom, 0px));
+      --head-h: calc(58px + env(safe-area-inset-top, 0px));
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100%; }
+    body { padding-top: var(--head-h); padding-bottom: var(--tab-h); }
+    button, input, select, textarea { font: inherit; color: inherit; }
+    img { max-width: 100%; display: block; }
+    button { cursor: pointer; border: 0; background: none; }
+    input, select, textarea {
+      background: var(--bg-elev); border: 1px solid var(--line); border-radius: 10px;
+      padding: 12px 12px; width: 100%; font-size: 16px; outline: none;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--gold); }
+    .app-header {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 40;
+      padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px;
+      background: rgba(11,13,18,.88); backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--line);
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .brand img { width: 32px; height: 32px; border-radius: 8px; }
+    .brand h1 { font-size: 17px; margin: 0; font-weight: 700; letter-spacing: -.02em; }
+    .head-value { text-align: right; }
+    .head-value .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+    .head-value .amt { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .view { display: none; padding: 16px; max-width: 720px; margin: 0 auto; }
+    .view.active { display: block; }
+    .tab-bar {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      background: rgba(18,21,28,.96); backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-top: 1px solid var(--line);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    .tab-bar button {
+      padding: 8px 4px 6px; color: var(--muted); font-size: 11px; font-weight: 600;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+    }
+    .tab-bar button.active { color: var(--gold); }
+    .tab-bar svg { width: 22px; height: 22px; }
+    .chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 12px; scrollbar-width: none; }
+    .chips::-webkit-scrollbar { display: none; }
+    .chip {
+      flex: 0 0 auto; padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line);
+      background: var(--card); color: var(--muted); font-size: 13px; font-weight: 600;
+    }
+    .chip.active { background: var(--gold-dim); border-color: var(--gold); color: var(--gold); }
+    .search-row { display: flex; gap: 8px; margin-bottom: 12px; }
+    .search-row input { flex: 1; }
+    .btn {
+      background: var(--gold); color: #1a1406; font-weight: 700; border-radius: 10px;
+      padding: 12px 14px; font-size: 14px; white-space: nowrap;
+    }
+    .btn:disabled { opacity: .45; }
+    .btn.ghost { background: var(--card-2); color: var(--text); border: 1px solid var(--line); }
+    .btn.danger { background: #3a1518; color: #fca5a5; border: 1px solid #7f1d1d; }
+    .btn.full { width: 100%; }
+    .btn.small { padding: 8px 10px; font-size: 13px; }
+    .muted { color: var(--muted); }
+    .hint { font-size: 13px; color: var(--muted); line-height: 1.45; }
+    .status { font-size: 13px; color: var(--muted); margin: 0 0 10px; min-height: 1.2em; }
+    .results, .list { display: flex; flex-direction: column; gap: 10px; }
+    .card-row {
+      display: grid; grid-template-columns: 64px 1fr auto; gap: 12px; align-items: center;
+      background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 10px; box-shadow: var(--shadow);
+    }
+    .card-row img.art {
+      width: 64px; height: 88px; object-fit: cover; border-radius: 6px; background: #0a0c10;
+    }
+    .card-row .meta { min-width: 0; }
+    .card-row .name { font-weight: 700; font-size: 14px; line-height: 1.25;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .card-row .sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .card-row .price { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .card-row .price small { display: block; font-weight: 600; font-size: 11px; color: var(--muted); }
+    .badge {
+      display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .04em;
+      text-transform: uppercase; padding: 2px 6px; border-radius: 999px;
+      background: var(--card-2); color: var(--muted); margin-right: 4px;
+    }
+    .badge.poke { color: #fbbf24; background: #fbbf2420; }
+    .badge.mtg { color: #93c5fd; background: #3b82f620; }
+    .badge.ygo { color: #f9a8d4; background: #ec489920; }
+    .badge.other { color: #c4b5fd; background: #8b5cf620; }
+    .gain.pos { color: var(--good); }
+    .gain.neg { color: var(--bad); }
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .toolbar select, .toolbar input { width: auto; flex: 1; min-width: 0; padding: 10px; }
+    .stats {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;
+    }
+    .stat {
+      background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px;
+    }
+    .stat .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+    .stat .amt { font-size: 22px; font-weight: 800; margin-top: 4px; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+    .stat.wide { grid-column: 1 / -1; }
+    .panel {
+      background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 14px; margin-bottom: 14px;
+    }
+    .panel h2 { margin: 0 0 10px; font-size: 15px; }
+    #chart { width: 100%; height: 180px; display: block; }
+    .bars { display: flex; flex-direction: column; gap: 8px; }
+    .bar-row { display: grid; grid-template-columns: 84px 1fr 72px; gap: 8px; align-items: center; font-size: 13px; }
+    .bar-track { height: 8px; background: var(--bg-elev); border-radius: 99px; overflow: hidden; }
+    .bar-fill { height: 100%; background: var(--gold); border-radius: 99px; }
+    .sheet-bg {
+      position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 60;
+      display: none; align-items: flex-end; justify-content: center;
+    }
+    .sheet-bg.open { display: flex; }
+    .sheet {
+      width: 100%; max-width: 560px; max-height: min(92vh, 760px);
+      overflow: auto; background: var(--bg-elev);
+      border-radius: 18px 18px 0 0; padding: 12px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+      box-shadow: var(--shadow);
+    }
+    .sheet .handle { width: 36px; height: 4px; background: var(--line); border-radius: 4px; margin: 4px auto 12px; }
+    .sheet h3 { margin: 0 0 12px; font-size: 18px; }
+    .form-grid { display: grid; gap: 10px; }
+    .form-grid label { font-size: 12px; color: var(--muted); font-weight: 600; display: grid; gap: 6px; }
+    .qty-row { display: flex; align-items: center; gap: 8px; }
+    .qty-row button {
+      width: 40px; height: 40px; border-radius: 10px; background: var(--card-2);
+      border: 1px solid var(--line); font-size: 20px; font-weight: 700;
+    }
+    .qty-row input { text-align: center; width: 80px; }
+    .sheet-art { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; }
+    .sheet-art img { width: 72px; height: 100px; object-fit: cover; border-radius: 8px; background: #000; }
+    .toast {
+      position: fixed; left: 50%; bottom: calc(var(--tab-h) + 12px); transform: translateX(-50%);
+      background: #f3f4f6; color: #111; padding: 10px 14px; border-radius: 10px;
+      font-size: 13px; font-weight: 600; z-index: 80; display: none; max-width: 90%;
+      box-shadow: var(--shadow);
+    }
+    .toast.show { display: block; }
+    .empty { text-align: center; padding: 36px 16px; color: var(--muted); }
+    .empty h3 { color: var(--text); margin: 0 0 6px; }
+    .actions { display: flex; gap: 8px; margin-top: 14px; }
+    .file-btn { position: relative; overflow: hidden; display: inline-block; }
+    .file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .kicker { font-size: 12px; color: var(--muted); margin-top: 8px; }
+    .hidden { display: none !important; }
+    @media (min-width: 720px) {
+      .stats { grid-template-columns: repeat(3, 1fr); }
+      .stat.wide { grid-column: auto; }
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <img src="apple-touch-icon.png" alt="">
+      <h1>Card Vault</h1>
+    </div>
+    <div class="head-value">
+      <div class="lbl">Portfolio</div>
+      <div class="amt" id="headValue">$0.00</div>
+    </div>
+  </header>
+
+  <section class="view active" id="view-search">
+    <div class="chips" id="gameChips"></div>
+    <div class="search-row" id="searchRow">
+      <input id="q" type="search" placeholder="Search cards…" enterkeyhint="search" autocomplete="off" autocapitalize="off">
+      <button class="btn" id="searchBtn">Search</button>
+    </div>
+    <p class="status" id="searchStatus"></p>
+    <div class="results" id="results"></div>
+  </section>
+
+  <section class="view" id="view-collection">
+    <div class="toolbar">
+      <input id="filterQ" type="search" placeholder="Filter collection…">
+      <select id="filterGame">
+        <option value="">All games</option>
+      </select>
+      <select id="sortBy">
+        <option value="added">Newest</option>
+        <option value="name">Name</option>
+        <option value="value">Value (high)</option>
+        <option value="gain">Gain/loss</option>
+        <option value="set">Set</option>
+      </select>
+      <button class="btn small ghost" id="refreshBtn">Refresh prices</button>
+    </div>
+    <p class="status" id="colStatus"></p>
+    <div class="list" id="collection"></div>
+  </section>
+
+  <section class="view" id="view-value">
+    <div class="stats" id="stats"></div>
+    <div class="panel">
+      <h2>Value over time</h2>
+      <svg id="chart" viewBox="0 0 360 180" preserveAspectRatio="none" aria-label="Portfolio value chart"></svg>
+      <p class="hint" id="chartHint"></p>
+    </div>
+    <div class="panel">
+      <h2>By game</h2>
+      <div class="bars" id="bars"></div>
+    </div>
+  </section>
+
+  <section class="view" id="view-backup">
+    <div class="panel">
+      <h2>Backup</h2>
+      <p class="hint">Your collection lives only in this browser on this phone. Export a backup so you don’t lose it if the site data is cleared.</p>
+      <div class="actions">
+        <button class="btn" id="exportJson">Export JSON</button>
+        <button class="btn ghost" id="exportCsv">Export CSV</button>
+      </div>
+      <div class="actions">
+        <label class="btn ghost file-btn">Import JSON<input type="file" id="importJson" accept="application/json,.json"></label>
+      </div>
+      <p class="kicker" id="backupMeta"></p>
+    </div>
+    <div class="panel">
+      <h2>Add to Home Screen</h2>
+      <p class="hint">On iPhone: open this page in Safari, tap the Share button, then <strong>Add to Home Screen</strong>. It will open like an app.</p>
+    </div>
+    <div class="panel">
+      <h2>About prices</h2>
+      <p class="hint">Pokémon prices come from the Pokémon TCG API (TCGplayer market). Magic prices come from Scryfall (USD). Yu-Gi-Oh! prices come from YGOPRODeck (TCGPlayer). Anything else can be added with a manual price. Market figures are typically near-mint and can lag or be missing for some printings.</p>
+    </div>
+  </section>
+
+  <nav class="tab-bar" id="tabs">
+    <button data-view="search" class="active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>
+      Search
+    </button>
+    <button data-view="collection">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="13" height="16" rx="2"/><rect x="8" y="7" width="13" height="16" rx="2"/></svg>
+      Collection
+    </button>
+    <button data-view="value">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5M4 19h16"/><path d="M7 15l4-5 3 3 5-7"/></svg>
+      Value
+    </button>
+    <button data-view="backup">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+      Backup
+    </button>
+  </nav>
+
+  <div class="sheet-bg" id="sheetBg">
+    <div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+  (function () {
+    'use strict';
+
+    var STORAGE_KEY = 'cardvault.v1';
+    var GAMES = [
+      { id: 'all', label: 'All' },
+      { id: 'pokemon', label: 'Pokémon' },
+      { id: 'mtg', label: 'Magic' },
+      { id: 'yugioh', label: 'Yu-Gi-Oh!' },
+      { id: 'manual', label: 'Manual' }
+    ];
+    var CONDITIONS = ['Near Mint', 'Lightly Played', 'Moderately Played', 'Heavily Played', 'Damaged', 'Graded'];
+    var GAME_LABEL = { pokemon: 'Pokémon', mtg: 'Magic', yugioh: 'Yu-Gi-Oh!', manual: 'Other' };
+    var GAME_BADGE = { pokemon: 'poke', mtg: 'mtg', yugioh: 'ygo', manual: 'other' };
+
+    var state = loadState();
+    var currentGame = 'all';
+    var lastResults = [];
+    var searchTimer = null;
+    var searchAbort = null;
+    var sheetMode = null;
+    var sheetPayload = null;
+    var refreshing = false;
+
+    function loadState() {
+      try {
+        var raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return { version: 1, items: [], snapshots: [] };
+        var data = JSON.parse(raw);
+        if (!data || !Array.isArray(data.items)) return { version: 1, items: [], snapshots: [] };
+        if (!Array.isArray(data.snapshots)) data.snapshots = [];
+        data.version = 1;
+        return data;
+      } catch (e) {
+        return { version: 1, items: [], snapshots: [] };
+      }
+    }
+
+    function saveState() {
+      snapshotToday();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      renderChrome();
+    }
+
+    function uid() {
+      if (crypto && crypto.randomUUID) return crypto.randomUUID();
+      return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+    }
+
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+      });
+    }
+
+    function safeUrl(u) {
+      if (!u) return '';
+      try {
+        var x = new URL(u, location.href);
+        if (x.protocol === 'https:' || x.protocol === 'http:') return x.href;
+      } catch (e) {}
+      return '';
+    }
+
+    function money(n) {
+      if (n == null || n === '' || Number.isNaN(Number(n))) return '—';
+      return Number(n).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+    }
+
+    function num(n) {
+      if (n == null || n === '') return null;
+      var v = Number(n);
+      return Number.isFinite(v) ? v : null;
+    }
+
+    function today() {
+      var d = new Date();
+      var m = String(d.getMonth() + 1).padStart(2, '0');
+      var day = String(d.getDate()).padStart(2, '0');
+      return d.getFullYear() + '-' + m + '-' + day;
+    }
+
+    function portfolioValue(items) {
+      items = items || state.items;
+      var total = 0;
+      for (var i = 0; i < items.length; i++) {
+        var it = items[i];
+        var p = num(it.marketPrice);
+        var q = num(it.qty) || 0;
+        if (p != null) total += p * q;
+      }
+      return total;
+    }
+
+    function costBasis(items) {
+      items = items || state.items;
+      var total = 0, count = 0, all = 0;
+      for (var i = 0; i < items.length; i++) {
+        var it = items[i];
+        var q = num(it.qty) || 0;
+        all += q;
+        var p = num(it.purchasePrice);
+        if (p != null) { total += p * q; count += q; }
+      }
+      return { total: total, counted: count, all: all };
+    }
+
+    function snapshotToday() {
+      var date = today();
+      var value = Math.round(portfolioValue() * 100) / 100;
+      var snaps = state.snapshots;
+      if (snaps.length && snaps[snaps.length - 1].date === date) {
+        snaps[snaps.length - 1].value = value;
+      } else {
+        snaps.push({ date: date, value: value });
+      }
+      if (snaps.length > 730) state.snapshots = snaps.slice(-730);
+    }
+
+    function toast(msg) {
+      var el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      clearTimeout(toast._t);
+      toast._t = setTimeout(function () { el.classList.remove('show'); }, 2600);
+    }
+
+    function prettyFinish(key) {
+      if (!key) return '';
+      var map = {
+        normal: 'Normal', holofoil: 'Holofoil', reverseHolofoil: 'Reverse Holofoil',
+        '1stEditionHolofoil': '1st Edition Holofoil', '1stEdition': '1st Edition',
+        unlimitedHolofoil: 'Unlimited Holofoil', unlimited: 'Unlimited',
+        usd: 'Nonfoil', usd_foil: 'Foil', usd_etched: 'Etched',
+        tcgplayer: 'TCGPlayer', cardmarket: 'Cardmarket'
+      };
+      if (map[key]) return map[key];
+      return String(key).replace(/([A-Z])/g, ' $1').replace(/^./, function (c) { return c.toUpperCase(); });
+    }
+
+    function pokemonPrices(card) {
+      var out = [];
+      var prices = card && card.tcgplayer && card.tcgplayer.prices;
+      if (prices) {
+        Object.keys(prices).forEach(function (k) {
+          var m = prices[k] && num(prices[k].market);
+          if (m != null) out.push({ finish: k, label: prettyFinish(k), price: m });
+        });
+      }
+      return out;
+    }
+
+    function scryPrices(card) {
+      var out = [];
+      var p = (card && card.prices) || {};
+      [['usd', 'Nonfoil'], ['usd_foil', 'Foil'], ['usd_etched', 'Etched']].forEach(function (pair) {
+        var v = num(p[pair[0]]);
+        if (v != null) out.push({ finish: pair[0], label: pair[1], price: v });
+      });
+      return out;
+    }
+
+    function ygoPrices(card) {
+      var out = [];
+      var p = (card && card.card_prices && card.card_prices[0]) || {};
+      var tcg = num(p.tcgplayer_price);
+      if (tcg != null) out.push({ finish: 'tcgplayer', label: 'TCGPlayer', price: tcg });
+      return out;
+    }
+
+    function tcgdexPrices(card) {
+      var out = [];
+      var tp = card && card.pricing && card.pricing.tcgplayer;
+      if (!tp) return out;
+      Object.keys(tp).forEach(function (k) {
+        if (k === 'unit' || k === 'updated' || typeof tp[k] !== 'object' || !tp[k]) return;
+        var m = num(tp[k].marketPrice);
+        if (m != null) out.push({ finish: k, label: prettyFinish(k), price: m });
+      });
+      return out;
+    }
+
+    function bestPrice(finishes) {
+      if (!finishes || !finishes.length) return null;
+      return finishes[0];
+    }
+
+    function scryImage(card, size) {
+      size = size || 'normal';
+      if (card.image_uris && card.image_uris[size]) return card.image_uris[size];
+      if (card.image_uris && card.image_uris.small) return card.image_uris.small;
+      var face = card.card_faces && card.card_faces[0] && card.card_faces[0].image_uris;
+      if (face) return face[size] || face.normal || face.small || '';
+      return '';
+    }
+
+    function badge(source) {
+      return '<span class="badge ' + (GAME_BADGE[source] || 'other') + '">' + esc(GAME_LABEL[source] || source) + '</span>';
+    }
+
+    function renderChrome() {
+      document.getElementById('headValue').textContent = money(portfolioValue());
+      var n = state.items.reduce(function (s, it) { return s + (num(it.qty) || 0); }, 0);
+      document.getElementById('backupMeta').textContent =
+        n + ' card' + (n === 1 ? '' : 's') + ' in this browser · last saved locally';
+    }
+
+    function setView(name) {
+      document.querySelectorAll('.view').forEach(function (v) { v.classList.remove('active'); });
+      document.getElementById('view-' + name).classList.add('active');
+      document.querySelectorAll('#tabs button').forEach(function (b) {
+        b.classList.toggle('active', b.getAttribute('data-view') === name);
+      });
+      if (name === 'collection') renderCollection();
+      if (name === 'value') renderValue();
+      if (name === 'backup') renderChrome();
+      window.scrollTo(0, 0);
+    }
+
+    function renderChips() {
+      document.getElementById('gameChips').innerHTML = GAMES.map(function (g) {
+        return '<button class="chip' + (g.id === currentGame ? ' active' : '') + '" data-game="' + g.id + '">' + esc(g.label) + '</button>';
+      }).join('');
+    }
+
+    function renderManualForm() {
+      document.getElementById('searchRow').classList.add('hidden');
+      document.getElementById('searchStatus').textContent = '';
+      document.getElementById('results').innerHTML =
+        '<div class="panel"><h2>Manual entry</h2><p class="hint">Use this for sports cards, sealed product, or anything without a live price feed. You can update the market price later.</p>' +
+        '<div class="form-grid">' +
+        '<label>Name<input id="manName" placeholder="e.g. 1989 Upper Deck Ken Griffey Jr."></label>' +
+        '<label>Set / details<input id="manSet" placeholder="Set, year, or notes"></label>' +
+        '<label>Market price (USD)<input id="manPrice" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00"></label>' +
+        '<label>Quantity<input id="manQty" type="number" inputmode="numeric" min="1" value="1"></label>' +
+        '<label>Condition<select id="manCond">' + CONDITIONS.map(function (c) { return '<option>' + esc(c) + '</option>'; }).join('') + '</select></label>' +
+        '<label>What you paid (optional)<input id="manPaid" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Per card"></label>' +
+        '<button class="btn full" id="manAdd">Add to collection</button>' +
+        '</div></div>';
+    }
+
+    function resultRow(card, idx) {
+      var img = safeUrl(card.image);
+      var price = card.price == null ? 'No price' : money(card.price);
+      var fin = card.finishLabel ? '<small>' + esc(card.finishLabel) + '</small>' : '';
+      return '<article class="card-row">' +
+        (img ? '<img class="art" loading="lazy" alt="" src="' + esc(img) + '">' : '<div class="art"></div>') +
+        '<div class="meta">' + badge(card.source) +
+        '<div class="name">' + esc(card.name) + '</div>' +
+        '<div class="sub">' + esc([card.set, card.number].filter(Boolean).join(' · ')) + '</div></div>' +
+        '<div class="price">' + price + fin +
+        '<div style="margin-top:6px"><button class="btn small" data-add="' + idx + '">Add</button></div></div></article>';
+    }
+
+    function normalizePokemon(card) {
+      var finishes = pokemonPrices(card);
+      var best = bestPrice(finishes);
+      return {
+        source: 'pokemon',
+        cardId: card.id,
+        name: card.name,
+        set: (card.set && card.set.name) || '',
+        setCode: (card.set && card.set.id) || '',
+        number: card.number || '',
+        image: (card.images && (card.images.small || card.images.large)) || '',
+        imageLarge: (card.images && (card.images.large || card.images.small)) || '',
+        finishes: finishes,
+        finish: best ? best.finish : '',
+        finishLabel: best ? best.label : '',
+        price: best ? best.price : null
+      };
+    }
+
+    function normalizeTcgdex(card) {
+      var finishes = tcgdexPrices(card);
+      var best = bestPrice(finishes);
+      var imgBase = card.image || '';
+      return {
+        source: 'pokemon',
+        cardId: 'tcgdex:' + card.id,
+        name: card.name,
+        set: (card.set && card.set.name) || '',
+        setCode: (card.set && card.set.id) || '',
+        number: card.localId || '',
+        image: imgBase ? imgBase + '/low.webp' : '',
+        imageLarge: imgBase ? imgBase + '/high.webp' : '',
+        finishes: finishes,
+        finish: best ? best.finish : '',
+        finishLabel: best ? best.label : '',
+        price: best ? best.price : null
+      };
+    }
+
+    function normalizeScry(card) {
+      var finishes = scryPrices(card);
+      var best = bestPrice(finishes);
+      return {
+        source: 'mtg',
+        cardId: card.id,
+        name: card.name,
+        set: card.set_name || '',
+        setCode: (card.set || '').toUpperCase(),
+        number: card.collector_number || '',
+        image: scryImage(card, 'small'),
+        imageLarge: scryImage(card, 'normal'),
+        finishes: finishes,
+        finish: best ? best.finish : '',
+        finishLabel: best ? best.label : '',
+        price: best ? best.price : null
+      };
+    }
+
+    function normalizeYgo(card) {
+      var finishes = ygoPrices(card);
+      var best = bestPrice(finishes);
+      var img = card.card_images && card.card_images[0];
+      var set = (card.card_sets && card.card_sets[0]) || {};
+      return {
+        source: 'yugioh',
+        cardId: String(card.id),
+        name: card.name,
+        set: set.set_name || '',
+        setCode: set.set_code || '',
+        number: set.set_code || '',
+        image: (img && (img.image_url_small || img.image_url)) || '',
+        imageLarge: (img && (img.image_url || img.image_url_small)) || '',
+        finishes: finishes,
+        finish: best ? best.finish : '',
+        finishLabel: best ? best.label : '',
+        price: best ? best.price : null
+      };
+    }
+
+    function fetchJson(url, opts, signal) {
+      opts = opts || {};
+      var headers = opts.headers || {};
+      return fetch(url, { signal: signal, headers: headers }).then(function (res) {
+        if (!res.ok) {
+          var err = new Error('HTTP ' + res.status);
+          err.status = res.status;
+          throw err;
+        }
+        return res.json();
+      });
+    }
+
+    function pokemonQuery(q) {
+      q = String(q || '').replace(/[*:\\"]/g, '').trim();
+      if (!q) return 'name:a';
+      if (/\s/.test(q)) return 'name:"' + q + '"';
+      return 'name:' + q;
+    }
+
+    function searchPokemon(q, signal) {
+      var url = 'https://api.pokemontcg.io/v2/cards?q=' + encodeURIComponent(pokemonQuery(q)) + '&pageSize=30&orderBy=-set.releaseDate';
+      function once() { return fetchJson(url, {}, signal).then(function (data) {
+        return (data.data || []).map(normalizePokemon);
+      }); }
+      return once().catch(function (err) {
+        if (err && err.name === 'AbortError') throw err;
+        return delay(600).then(function () {
+          if (signal && signal.aborted) throw err;
+          return once();
+        }).catch(function (err2) {
+          if (err2 && err2.name === 'AbortError') throw err2;
+          return searchTcgdex(q, signal);
+        });
+      });
+    }
+
+    function searchTcgdex(q, signal) {
+      var url = 'https://api.tcgdex.net/v2/en/cards?name=' + encodeURIComponent(q);
+      return fetchJson(url, {}, signal).then(function (list) {
+        var items = Array.isArray(list) ? list.slice(0, 16) : [];
+        return Promise.all(items.map(function (it) {
+          return fetchJson('https://api.tcgdex.net/v2/en/cards/' + encodeURIComponent(it.id), {}, signal)
+            .then(normalizeTcgdex)
+            .catch(function () { return normalizeTcgdex(it); });
+        }));
+      });
+    }
+
+    function searchScryfall(q, signal) {
+      var exact = 'https://api.scryfall.com/cards/search?unique=prints&order=released&dir=desc&q=' + encodeURIComponent('!"' + q.replace(/"/g, '') + '"');
+      return fetchJson(exact, {}, signal).then(function (data) {
+        return (data.data || []).map(normalizeScry);
+      }).catch(function (err) {
+        if (err && err.name === 'AbortError') throw err;
+        if (err && err.status === 404) {
+          var fuzzy = 'https://api.scryfall.com/cards/search?unique=prints&order=released&dir=desc&q=' + encodeURIComponent(q);
+          return fetchJson(fuzzy, {}, signal).then(function (data) {
+            return (data.data || []).map(normalizeScry);
+          });
+        }
+        throw err;
+      });
+    }
+
+    function searchYgo(q, signal) {
+      var url = 'https://db.ygoprodeck.com/api/v7/cardinfo.php?fname=' + encodeURIComponent(q) + '&num=30&offset=0';
+      return fetchJson(url, {}, signal).then(function (data) {
+        return (data.data || []).map(normalizeYgo);
+      }).catch(function (err) {
+        if (err && err.name === 'AbortError') throw err;
+        if (err && err.status === 400) return [];
+        throw err;
+      });
+    }
+
+    function runSearch() {
+      var q = document.getElementById('q').value.trim();
+      var status = document.getElementById('searchStatus');
+      var box = document.getElementById('results');
+      if (currentGame === 'manual') { renderManualForm(); return; }
+      document.getElementById('searchRow').classList.remove('hidden');
+      if (!q) { status.textContent = 'Type a card name to search.'; box.innerHTML = ''; lastResults = []; return; }
+      if (searchAbort) searchAbort.abort();
+      searchAbort = new AbortController();
+      var signal = searchAbort.signal;
+      status.textContent = 'Searching…';
+      box.innerHTML = '';
+      var jobs = [];
+      if (currentGame === 'all' || currentGame === 'pokemon') jobs.push(searchPokemon(q, signal));
+      if (currentGame === 'all' || currentGame === 'mtg') jobs.push(searchScryfall(q, signal));
+      if (currentGame === 'all' || currentGame === 'yugioh') jobs.push(searchYgo(q, signal));
+      Promise.allSettled(jobs).then(function (parts) {
+        if (signal.aborted) return;
+        var rows = [];
+        var errors = [];
+        parts.forEach(function (p, i) {
+          if (p.status === 'fulfilled') rows = rows.concat(p.value || []);
+          else if (p.reason && p.reason.name !== 'AbortError') errors.push(p.reason);
+        });
+        lastResults = rows;
+        if (!rows.length) {
+          status.textContent = errors.length ? 'Search failed. Try again in a moment.' : 'No cards found.';
+          box.innerHTML = '';
+          return;
+        }
+        status.textContent = rows.length + ' result' + (rows.length === 1 ? '' : 's') +
+          (errors.length ? ' (one source failed)' : '');
+        box.innerHTML = rows.map(resultRow).join('');
+      });
+    }
+
+    function openSheet(mode, payload) {
+      sheetMode = mode;
+      sheetPayload = payload;
+      var el = document.getElementById('sheet');
+      var card = payload;
+      var existing = mode === 'edit';
+      var finishes = (card.finishes && card.finishes.length) ? card.finishes : [{ finish: card.finish || '', label: card.finishLabel || 'Market', price: card.price != null ? card.price : card.marketPrice }];
+      var finishOpts = finishes.map(function (f) {
+        var sel = (f.finish === (card.finish || '')) ? ' selected' : '';
+        return '<option value="' + esc(f.finish) + '"' + sel + '>' + esc(f.label) + (f.price != null ? ' · ' + money(f.price) : '') + '</option>';
+      }).join('');
+      var condOpts = CONDITIONS.map(function (c) {
+        return '<option' + (c === (card.condition || 'Near Mint') ? ' selected' : '') + '>' + esc(c) + '</option>';
+      }).join('');
+      var img = safeUrl(card.image || card.imageLarge);
+      el.innerHTML =
+        '<div class="handle"></div>' +
+        '<div class="sheet-art">' +
+        (img ? '<img alt="" src="' + esc(img) + '">' : '') +
+        '<div><div>' + badge(card.source || 'manual') + '</div>' +
+        '<h3 style="margin:6px 0 4px">' + esc(card.name) + '</h3>' +
+        '<div class="hint">' + esc([card.set, card.number].filter(Boolean).join(' · ')) + '</div></div></div>' +
+        '<div class="form-grid">' +
+        '<label>Finish / price source<select id="shFinish"' + (finishes.length <= 1 ? ' disabled' : '') + '>' + finishOpts + '</select></label>' +
+        '<label>Quantity<div class="qty-row"><button type="button" id="qtyMinus">−</button><input id="shQty" type="number" inputmode="numeric" min="1" step="1" value="' + esc(card.qty || 1) + '"><button type="button" id="qtyPlus">+</button></div></label>' +
+        '<label>Condition<select id="shCond">' + condOpts + '</select></label>' +
+        '<label>What you paid (per card, optional)<input id="shPaid" type="number" inputmode="decimal" step="0.01" min="0" value="' + (card.purchasePrice != null ? esc(card.purchasePrice) : '') + '" placeholder="0.00"></label>' +
+        (existing ? '<label>Market price<input id="shMarket" type="number" inputmode="decimal" step="0.01" min="0" value="' + (card.marketPrice != null ? esc(card.marketPrice) : '') + '"></label>' : '') +
+        '<div class="actions">' +
+        '<button class="btn full" id="shSave">' + (existing ? 'Save changes' : 'Add to collection') + '</button>' +
+        (existing ? '<button class="btn danger" id="shDelete">Delete</button>' : '') +
+        '</div></div>';
+      document.getElementById('sheetBg').classList.add('open');
+    }
+
+    function closeSheet() {
+      document.getElementById('sheetBg').classList.remove('open');
+      sheetMode = null;
+      sheetPayload = null;
+    }
+
+    function finishPrice(card, finish) {
+      var list = card.finishes || [];
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].finish === finish) return list[i];
+      }
+      return list[0] || { finish: finish, label: prettyFinish(finish), price: card.price != null ? card.price : card.marketPrice };
+    }
+
+    function saveFromSheet() {
+      var card = sheetPayload;
+      if (!card) return;
+      var finish = document.getElementById('shFinish').value;
+      var fp = finishPrice(card, finish);
+      var qty = Math.max(1, parseInt(document.getElementById('shQty').value, 10) || 1);
+      var cond = document.getElementById('shCond').value;
+      var paid = num(document.getElementById('shPaid').value);
+      var marketEl = document.getElementById('shMarket');
+      var market = marketEl ? num(marketEl.value) : (fp && fp.price != null ? fp.price : num(card.price));
+      if (sheetMode === 'edit') {
+        card.qty = qty;
+        card.condition = cond;
+        card.purchasePrice = paid;
+        card.finish = fp ? fp.finish : finish;
+        card.finishLabel = fp ? fp.label : prettyFinish(finish);
+        if (marketEl) card.marketPrice = market;
+        else if (fp && fp.price != null) card.marketPrice = fp.price;
+        card.priceUpdatedAt = new Date().toISOString();
+        toast('Updated');
+      } else {
+        state.items.unshift({
+          id: uid(),
+          source: card.source,
+          cardId: card.cardId,
+          name: card.name,
+          set: card.set || '',
+          setCode: card.setCode || '',
+          number: card.number || '',
+          image: card.image || '',
+          imageLarge: card.imageLarge || '',
+          game: GAME_LABEL[card.source] || 'Other',
+          finish: fp ? fp.finish : finish,
+          finishLabel: fp ? fp.label : prettyFinish(finish),
+          finishes: card.finishes || [],
+          qty: qty,
+          condition: cond,
+          purchasePrice: paid,
+          marketPrice: market,
+          priceUpdatedAt: new Date().toISOString(),
+          addedAt: new Date().toISOString()
+        });
+        toast('Added to collection');
+      }
+      saveState();
+      closeSheet();
+      if (document.getElementById('view-collection').classList.contains('active')) renderCollection();
+    }
+
+    function addManual() {
+      var name = document.getElementById('manName').value.trim();
+      if (!name) { toast('Enter a name'); return; }
+      var price = num(document.getElementById('manPrice').value);
+      state.items.unshift({
+        id: uid(),
+        source: 'manual',
+        cardId: 'manual-' + uid(),
+        name: name,
+        set: document.getElementById('manSet').value.trim(),
+        setCode: '',
+        number: '',
+        image: '',
+        imageLarge: '',
+        game: 'Other',
+        finish: 'manual',
+        finishLabel: 'Manual',
+        finishes: price != null ? [{ finish: 'manual', label: 'Manual', price: price }] : [],
+        qty: Math.max(1, parseInt(document.getElementById('manQty').value, 10) || 1),
+        condition: document.getElementById('manCond').value,
+        purchasePrice: num(document.getElementById('manPaid').value),
+        marketPrice: price,
+        priceUpdatedAt: new Date().toISOString(),
+        addedAt: new Date().toISOString()
+      });
+      saveState();
+      toast('Added to collection');
+      document.getElementById('manName').value = '';
+    }
+
+    function visibleItems() {
+      var q = (document.getElementById('filterQ').value || '').trim().toLowerCase();
+      var g = document.getElementById('filterGame').value;
+      var sort = document.getElementById('sortBy').value;
+      var items = state.items.filter(function (it) {
+        if (g && it.source !== g) return false;
+        if (!q) return true;
+        var hay = ((it.name || '') + ' ' + (it.set || '') + ' ' + (it.number || '')).toLowerCase();
+        return hay.indexOf(q) !== -1;
+      });
+      items.sort(function (a, b) {
+        if (sort === 'name') return (a.name || '').localeCompare(b.name || '');
+        if (sort === 'set') return (a.set || '').localeCompare(b.set || '') || (a.name || '').localeCompare(b.name || '');
+        if (sort === 'value') {
+          return ((num(b.marketPrice) || 0) * (num(b.qty) || 0)) - ((num(a.marketPrice) || 0) * (num(a.qty) || 0));
+        }
+        if (sort === 'gain') {
+          var ga = (num(a.marketPrice) || 0) - (num(a.purchasePrice) || 0);
+          var gb = (num(b.marketPrice) || 0) - (num(b.purchasePrice) || 0);
+          return gb - ga;
+        }
+        return String(b.addedAt || '').localeCompare(String(a.addedAt || ''));
+      });
+      return items;
+    }
+
+    function renderCollection() {
+      var box = document.getElementById('collection');
+      var filterGame = document.getElementById('filterGame');
+      var used = {};
+      state.items.forEach(function (it) { used[it.source] = true; });
+      var cur = filterGame.value;
+      filterGame.innerHTML = '<option value="">All games</option>' + Object.keys(used).map(function (s) {
+        return '<option value="' + esc(s) + '">' + esc(GAME_LABEL[s] || s) + '</option>';
+      }).join('');
+      if (cur && used[cur]) filterGame.value = cur;
+      var items = visibleItems();
+      var status = document.getElementById('colStatus');
+      if (!state.items.length) {
+        status.textContent = '';
+        box.innerHTML = '<div class="empty"><h3>No cards yet</h3><p>Search for a card and tap Add. Manual entry is there for sports cards and sealed product.</p></div>';
+        return;
+      }
+      status.textContent = items.length + ' of ' + state.items.length + ' shown';
+      box.innerHTML = items.map(function (it) {
+        var line = (num(it.marketPrice) || 0) * (num(it.qty) || 0);
+        var paid = num(it.purchasePrice);
+        var gainHtml = '';
+        if (paid != null && it.marketPrice != null) {
+          var g = (it.marketPrice - paid) * (num(it.qty) || 0);
+          var cls = g > 0 ? 'pos' : (g < 0 ? 'neg' : '');
+          gainHtml = '<small class="gain ' + cls + '">' + (g > 0 ? '+' : '') + money(g) + '</small>';
+        }
+        var img = safeUrl(it.image);
+        return '<article class="card-row" data-edit="' + esc(it.id) + '">' +
+          (img ? '<img class="art" loading="lazy" alt="" src="' + esc(img) + '">' : '<div class="art"></div>') +
+          '<div class="meta">' + badge(it.source) +
+          '<div class="name">' + esc(it.name) + '</div>' +
+          '<div class="sub">' + esc([it.qty + '×', it.condition, it.finishLabel, it.set, it.number].filter(Boolean).join(' · ')) + '</div></div>' +
+          '<div class="price">' + money(line) + gainHtml + '</div></article>';
+      }).join('');
+    }
+
+    function renderValue() {
+      snapshotToday();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      var market = portfolioValue();
+      var cost = costBasis();
+      var gain = market - cost.total;
+      var gainPct = cost.total ? (gain / cost.total) * 100 : null;
+      var cls = gain > 0 ? 'gain pos' : (gain < 0 ? 'gain neg' : '');
+      var costNote = cost.counted < cost.all ? ' · cost entered for ' + cost.counted + ' of ' + cost.all : '';
+      document.getElementById('stats').innerHTML =
+        '<div class="stat"><div class="lbl">Market value</div><div class="amt">' + money(market) + '</div></div>' +
+        '<div class="stat"><div class="lbl">Cost basis' + esc(costNote) + '</div><div class="amt">' + money(cost.total) + '</div></div>' +
+        '<div class="stat"><div class="lbl">Gain / loss</div><div class="amt ' + cls + '">' +
+        (gain > 0 ? '+' : '') + money(gain) +
+        (gainPct != null ? '<div class="kicker ' + cls + '">' + (gainPct > 0 ? '+' : '') + gainPct.toFixed(1) + '%</div>' : '') +
+        '</div></div>';
+      drawChart();
+      var by = {};
+      state.items.forEach(function (it) {
+        var k = it.source || 'manual';
+        by[k] = (by[k] || 0) + ((num(it.marketPrice) || 0) * (num(it.qty) || 0));
+      });
+      var keys = Object.keys(by).sort(function (a, b) { return by[b] - by[a]; });
+      var max = keys.reduce(function (m, k) { return Math.max(m, by[k]); }, 0) || 1;
+      document.getElementById('bars').innerHTML = keys.length ? keys.map(function (k) {
+        var pct = Math.round((by[k] / max) * 100);
+        return '<div class="bar-row"><div>' + esc(GAME_LABEL[k] || k) + '</div><div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div><div style="text-align:right">' + money(by[k]) + '</div></div>';
+      }).join('') : '<p class="hint">Add cards to see a breakdown.</p>';
+    }
+
+    function drawChart() {
+      var svg = document.getElementById('chart');
+      var hint = document.getElementById('chartHint');
+      var snaps = state.snapshots || [];
+      if (snaps.length < 2) {
+        svg.innerHTML = '';
+        hint.textContent = 'A chart appears after Card Vault has more than one daily value. Refresh prices or check back tomorrow.';
+        return;
+      }
+      hint.textContent = snaps[0].date + '  →  ' + snaps[snaps.length - 1].date;
+      var w = 360, h = 180, pad = 16, padL = 8, padR = 8;
+      var vals = snaps.map(function (s) { return s.value; });
+      var min = Math.min.apply(null, vals);
+      var max = Math.max.apply(null, vals);
+      if (min === max) { min -= 1; max += 1; }
+      function x(i) { return padL + (i / (snaps.length - 1)) * (w - padL - padR); }
+      function y(v) { return pad + (1 - (v - min) / (max - min)) * (h - pad * 2); }
+      var d = snaps.map(function (s, i) { return (i ? 'L' : 'M') + x(i).toFixed(1) + ',' + y(s.value).toFixed(1); }).join(' ');
+      var area = d + ' L' + x(snaps.length - 1).toFixed(1) + ',' + (h - 4) + ' L' + x(0).toFixed(1) + ',' + (h - 4) + ' Z';
+      var last = snaps[snaps.length - 1].value;
+      svg.innerHTML =
+        '<path d="' + area + '" fill="rgba(232,184,74,.12)"></path>' +
+        '<path d="' + d + '" fill="none" stroke="#e8b84a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>' +
+        '<circle cx="' + x(snaps.length - 1).toFixed(1) + '" cy="' + y(last).toFixed(1) + '" r="3.5" fill="#e8b84a"></circle>';
+    }
+
+    function delay(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+    function refreshOne(item) {
+      if (item.source === 'manual') return Promise.resolve(false);
+      if (item.source === 'pokemon' && String(item.cardId).indexOf('tcgdex:') === 0) {
+        var id = String(item.cardId).slice(7);
+        return fetchJson('https://api.tcgdex.net/v2/en/cards/' + encodeURIComponent(id)).then(function (card) {
+          var n = normalizeTcgdex(card);
+          item.finishes = n.finishes;
+          var fp = finishPrice(n, item.finish);
+          if (fp && fp.price != null) item.marketPrice = fp.price;
+          if (fp && fp.label) item.finishLabel = fp.label;
+          item.priceUpdatedAt = new Date().toISOString();
+          return true;
+        });
+      }
+      if (item.source === 'pokemon') {
+        return fetchJson('https://api.pokemontcg.io/v2/cards/' + encodeURIComponent(item.cardId)).then(function (data) {
+          var n = normalizePokemon(data.data || data);
+          item.finishes = n.finishes;
+          var fp = finishPrice(n, item.finish);
+          if (fp && fp.price != null) item.marketPrice = fp.price;
+          if (fp && fp.label) item.finishLabel = fp.label;
+          if (n.image) item.image = n.image;
+          item.priceUpdatedAt = new Date().toISOString();
+          return true;
+        });
+      }
+      if (item.source === 'mtg') {
+        return fetchJson('https://api.scryfall.com/cards/' + encodeURIComponent(item.cardId)).then(function (card) {
+          var n = normalizeScry(card);
+          item.finishes = n.finishes;
+          var fp = finishPrice(n, item.finish);
+          if (fp && fp.price != null) item.marketPrice = fp.price;
+          if (fp && fp.label) item.finishLabel = fp.label;
+          item.priceUpdatedAt = new Date().toISOString();
+          return true;
+        });
+      }
+      if (item.source === 'yugioh') {
+        return fetchJson('https://db.ygoprodeck.com/api/v7/cardinfo.php?id=' + encodeURIComponent(item.cardId)).then(function (data) {
+          var card = (data.data && data.data[0]) || data;
+          var n = normalizeYgo(card);
+          item.finishes = n.finishes;
+          var fp = finishPrice(n, item.finish);
+          if (fp && fp.price != null) item.marketPrice = fp.price;
+          if (fp && fp.label) item.finishLabel = fp.label;
+          item.priceUpdatedAt = new Date().toISOString();
+          return true;
+        });
+      }
+      return Promise.resolve(false);
+    }
+
+    function refreshPrices() {
+      if (refreshing) return;
+      var live = state.items.filter(function (it) { return it.source !== 'manual'; });
+      if (!live.length) { toast('No live-priced cards to refresh'); return; }
+      refreshing = true;
+      var btn = document.getElementById('refreshBtn');
+      btn.disabled = true;
+      var i = 0, ok = 0, fail = 0;
+      function step() {
+        if (i >= live.length) {
+          refreshing = false;
+          btn.disabled = false;
+          saveState();
+          renderCollection();
+          toast('Updated ' + ok + ' price' + (ok === 1 ? '' : 's') + (fail ? ', ' + fail + ' failed' : ''));
+          return;
+        }
+        document.getElementById('colStatus').textContent = 'Refreshing ' + (i + 1) + ' of ' + live.length + '…';
+        refreshOne(live[i]).then(function (did) { if (did) ok++; }).catch(function () { fail++; }).then(function () {
+          i++;
+          return delay(250);
+        }).then(step);
+      }
+      step();
+    }
+
+    function exportJson() {
+      snapshotToday();
+      var blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+      download(blob, 'card-vault-' + today() + '.json');
+    }
+
+    function csvCell(v) {
+      var s = v == null ? '' : String(v);
+      if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+      return s;
+    }
+
+    function exportCsv() {
+      var headers = ['name', 'game', 'set', 'number', 'finish', 'quantity', 'condition', 'purchase_price', 'market_price', 'total_market', 'total_cost', 'gain_loss', 'added'];
+      var lines = [headers.join(',')];
+      state.items.forEach(function (it) {
+        var q = num(it.qty) || 0;
+        var m = num(it.marketPrice);
+        var c = num(it.purchasePrice);
+        var totalM = m != null ? m * q : '';
+        var totalC = c != null ? c * q : '';
+        var gain = (m != null && c != null) ? (m - c) * q : '';
+        lines.push([it.name, it.game || GAME_LABEL[it.source], it.set, it.number, it.finishLabel, q, it.condition, c, m, totalM, totalC, gain, it.addedAt].map(csvCell).join(','));
+      });
+      download(new Blob([lines.join('\n')], { type: 'text/csv' }), 'card-vault-' + today() + '.csv');
+    }
+
+    function download(blob, name) {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+    }
+
+    function importJson(file) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        try {
+          var data = JSON.parse(reader.result);
+          if (!data || !Array.isArray(data.items)) throw new Error('bad');
+          if (!confirm('Replace the collection in this browser with the ' + data.items.length + ' cards in this file?')) return;
+          state = { version: 1, items: data.items, snapshots: Array.isArray(data.snapshots) ? data.snapshots : [] };
+          saveState();
+          renderCollection();
+          renderValue();
+          toast('Imported ' + data.items.length + ' cards');
+        } catch (e) {
+          toast('That file is not a Card Vault backup');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    document.getElementById('gameChips').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-game]');
+      if (!b) return;
+      currentGame = b.getAttribute('data-game');
+      renderChips();
+      if (currentGame === 'manual') renderManualForm();
+      else {
+        document.getElementById('searchRow').classList.remove('hidden');
+        if (document.getElementById('q').value.trim()) runSearch();
+        else { document.getElementById('results').innerHTML = ''; document.getElementById('searchStatus').textContent = ''; }
+      }
+    });
+
+    document.getElementById('searchBtn').addEventListener('click', runSearch);
+    document.getElementById('q').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); runSearch(); }
+    });
+    document.getElementById('q').addEventListener('input', function () {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(runSearch, 450);
+    });
+
+    document.getElementById('results').addEventListener('click', function (e) {
+      if (e.target.id === 'manAdd') { addManual(); return; }
+      var b = e.target.closest('[data-add]');
+      if (!b) return;
+      var card = lastResults[Number(b.getAttribute('data-add'))];
+      if (card) openSheet('add', card);
+    });
+
+    document.getElementById('collection').addEventListener('click', function (e) {
+      var row = e.target.closest('[data-edit]');
+      if (!row) return;
+      var id = row.getAttribute('data-edit');
+      var item = state.items.filter(function (it) { return it.id === id; })[0];
+      if (item) openSheet('edit', item);
+    });
+
+    document.getElementById('filterQ').addEventListener('input', renderCollection);
+    document.getElementById('filterGame').addEventListener('change', renderCollection);
+    document.getElementById('sortBy').addEventListener('change', renderCollection);
+    document.getElementById('refreshBtn').addEventListener('click', refreshPrices);
+
+    document.getElementById('tabs').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-view]');
+      if (b) setView(b.getAttribute('data-view'));
+    });
+
+    document.getElementById('sheetBg').addEventListener('click', function (e) {
+      if (e.target.id === 'sheetBg') closeSheet();
+    });
+    document.getElementById('sheet').addEventListener('click', function (e) {
+      if (e.target.id === 'qtyMinus') {
+        var q = document.getElementById('shQty');
+        q.value = Math.max(1, (parseInt(q.value, 10) || 1) - 1);
+      }
+      if (e.target.id === 'qtyPlus') {
+        var q2 = document.getElementById('shQty');
+        q2.value = (parseInt(q2.value, 10) || 1) + 1;
+      }
+      if (e.target.id === 'shSave') saveFromSheet();
+      if (e.target.id === 'shDelete') {
+        if (!sheetPayload || !confirm('Remove this card from your collection?')) return;
+        state.items = state.items.filter(function (it) { return it.id !== sheetPayload.id; });
+        saveState();
+        closeSheet();
+        renderCollection();
+        toast('Removed');
+      }
+    });
+    document.getElementById('sheet').addEventListener('change', function (e) {
+      if (e.target.id === 'shFinish' && sheetPayload) {
+        var fp = finishPrice(sheetPayload, e.target.value);
+        var market = document.getElementById('shMarket');
+        if (market && fp && fp.price != null) market.value = fp.price;
+      }
+    });
+
+    document.getElementById('exportJson').addEventListener('click', exportJson);
+    document.getElementById('exportCsv').addEventListener('click', exportCsv);
+    document.getElementById('importJson').addEventListener('change', function (e) {
+      var f = e.target.files && e.target.files[0];
+      if (f) importJson(f);
+      e.target.value = '';
+    });
+
+    renderChips();
+    renderChrome();
+    snapshotToday();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  })();
+  </script>
+</body>
+</html>
