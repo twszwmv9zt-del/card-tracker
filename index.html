@@ -434,7 +434,10 @@
       var prices = card && card.tcgplayer && card.tcgplayer.prices;
       if (prices) {
         Object.keys(prices).forEach(function (k) {
-          var m = prices[k] && num(prices[k].market);
+          var block = prices[k] || {};
+          var m = num(block.market);
+          if (m == null) m = num(block.mid);
+          if (m == null) m = num(block.low);
           if (m != null) out.push({ finish: k, label: prettyFinish(k), price: m });
         });
       }
@@ -681,6 +684,10 @@
           var fuzzy = 'https://api.scryfall.com/cards/search?unique=prints&order=released&dir=desc&q=' + encodeURIComponent(q);
           return fetchJson(fuzzy, {}, signal).then(function (data) {
             return (data.data || []).map(normalizeScry);
+          }).catch(function (err2) {
+            if (err2 && err2.name === 'AbortError') throw err2;
+            if (err2 && err2.status === 404) return [];
+            throw err2;
           });
         }
         throw err;
@@ -699,6 +706,7 @@
     }
 
     function runSearch() {
+      clearTimeout(searchTimer);
       var q = document.getElementById('q').value.trim();
       var status = document.getElementById('searchStatus');
       var box = document.getElementById('results');
@@ -721,6 +729,11 @@
         parts.forEach(function (p, i) {
           if (p.status === 'fulfilled') rows = rows.concat(p.value || []);
           else if (p.reason && p.reason.name !== 'AbortError') errors.push(p.reason);
+        });
+        rows.sort(function (a, b) {
+          var ap = a.price == null ? 1 : 0;
+          var bp = b.price == null ? 1 : 0;
+          return ap - bp;
         });
         lastResults = rows;
         if (!rows.length) {
